@@ -3,7 +3,8 @@ on:
   pull_request:
   push:
     branches: [main]
-    tags: ['v*']
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -73,13 +74,13 @@ jobs:
           asset.chmod(0o755)
           pathlib.Path(str(asset) + '.sha256').write_text(hashlib.sha256(asset.read_bytes()).hexdigest() + '\n')
       - uses: actions/upload-artifact@v7
-        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'release'
         with:
           name: ${{ matrix.target }}
           path: dist/*
           if-no-files-found: error
-  publish:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+  upload-release-assets:
+    if: github.event_name == 'release'
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -89,10 +90,10 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      - name: Publish verified binaries
+      - name: Attach binaries and checksums to the published release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ github.event.release.tag_name }}
         run: |
-          gh release create "$TAG" dist/* --verify-tag --title "$TAG" --notes "Prebuilt Command Shelf binaries for Windows, Linux, and macOS. Plugin installation downloads the matching binary and verifies its SHA-256 checksum; Rust is needed only for source builds."
+          gh release upload "$TAG" dist/* --clobber
