@@ -32,17 +32,31 @@ jobs:
             target: aarch64-apple-darwin
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.13'
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Check release version
+        id: version
+        shell: python
+        run: |
+          import os, pathlib, tomllib
+          version = tomllib.loads(pathlib.Path("Cargo.toml").read_text())["package"]["version"]
+          manifest = tomllib.loads(pathlib.Path("herdr-plugin.toml").read_text())["version"]
+          if manifest != version:
+              raise SystemExit(f"Cargo.toml declares {version}, herdr-plugin.toml declares {manifest}")
+          tag = os.environ["GITHUB_REF_NAME"]
+          if os.environ["GITHUB_REF_TYPE"] == "tag" and tag != f"v{version}":
+              raise SystemExit(f"Tag {tag} points to plugin version {version}; expected v{version}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              print(f"version={version}", file=output)
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
         with:
           targets: ${{ matrix.target }}
           components: clippy
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y musl-tools
-      - run: cargo test --locked
+      - run: cargo test --locked --target ${{ matrix.target }}
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo build --release --locked --target ${{ matrix.target }}
       - if: runner.os == 'Windows'
@@ -58,22 +72,19 @@ jobs:
         env:
           TARGET: ${{ matrix.target }}
           EXTENSION: ${{ matrix.extension }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          import hashlib, os, pathlib, shutil, tomllib
+          import hashlib, os, pathlib, shutil
           root = pathlib.Path('.')
-          version = tomllib.loads((root / 'Cargo.toml').read_text())['package']['version']
-          manifest = tomllib.loads((root / 'herdr-plugin.toml').read_text())
-          assert manifest['version'] == version
-          if os.environ['GITHUB_REF_TYPE'] == 'tag':
-              assert os.environ['GITHUB_REF_NAME'] == 'v' + version
+          version = os.environ['VERSION']
           target, ext = os.environ['TARGET'], os.environ.get('EXTENSION', '')
           out = root / 'dist'
           out.mkdir()
           asset = out / f'herdr-command-shelf-v{version}-{target}{ext}'
           shutil.copyfile(root / 'target' / target / 'release' / ('herdr-command-shelf' + ext), asset)
           asset.chmod(0o755)
-          pathlib.Path(str(asset) + '.sha256').write_text(hashlib.sha256(asset.read_bytes()).hexdigest() + '\n')
-      - uses: actions/upload-artifact@v7
+          pathlib.Path(str(asset) + '.sha256').write_bytes(hashlib.sha256(asset.read_bytes()).hexdigest().encode('ascii') + b'\n')
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'release'
         with:
           name: ${{ matrix.target }}
@@ -86,7 +97,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           path: dist
           merge-multiple: true
