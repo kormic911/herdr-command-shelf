@@ -100,7 +100,10 @@ impl Store {
             Err(e) => return Err(e.into()),
         };
         match FileExt::try_lock_shared(&f) {
-            Ok(()) => Ok(false),
+            Ok(()) => {
+                FileExt::unlock(&f)?;
+                Ok(false)
+            }
             Err(e) if e.raw_os_error() == fs2::lock_contended_error().raw_os_error() => Ok(true),
             Err(e) => Err(e.into()),
         }
