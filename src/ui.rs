@@ -285,20 +285,19 @@ pub fn shelf(t: &mut Term, root: &Path, s: &Store, p: &Pane, mut theme: Theme) -
                 index: Some(selected),
             }),
             Some(K::Enter) if !entries.is_empty() && status.2 => (|| {
-                anyhow::ensure!(
-                    s.target()? == target,
-                    "Binding changed. Select the command again."
-                );
-                anyhow::ensure!(
-                    s.entries()?.get(selected) == entries.get(selected),
-                    "Command changed. Select it again."
-                );
-                herdr::run(
-                    root,
-                    &p.tab_id,
-                    target.as_ref().context("Unbound shelf")?,
-                    &entries[selected].command,
-                )?;
+                let target = target.as_ref().context("Unbound shelf")?;
+                let entry = &entries[selected];
+                s.check_run(selected, entry, target)?;
+                if entry.require_confirmation {
+                    message.clear();
+                    return herdr::dialog(Dialog::Run {
+                        tab: p.tab_id.clone(),
+                        index: selected,
+                        fingerprint: entry.fingerprint()?,
+                        target: target.clone(),
+                    });
+                }
+                herdr::run(root, &p.tab_id, target, &entry.command)?;
                 message = "Sent to shell".into();
                 Ok(())
             })(),
@@ -332,25 +331,42 @@ pub fn editor(t: &mut Term, s: &Store, index: Option<usize>, palette: Palette) -
     enum Focus {
         Title,
         Command,
+        Confirmation,
         Actions,
     }
+    let mut require_confirmation = old.as_ref().is_some_and(|entry| entry.require_confirmation);
     let mut focus = Focus::Title;
     let mut error = String::new();
     loop {
-        let mut fields = [Rect::default(); 2];
+        let mut fields = [Rect::default(); 3];
         let mut buttons = [Rect::default(); 2];
         t.draw(|f| {
             let area = f.area();
             f.render_widget(Block::default().style(palette.panel), area);
-            let [name, text, msg, help, actions] = Layout::vertical([
+            let [name, text, checkbox, msg, help, actions] = Layout::vertical([
                 Constraint::Length(3),
                 Constraint::Min(1),
+                Constraint::Length(1),
                 Constraint::Length(if error.is_empty() { 0 } else { 1 }),
                 Constraint::Length(u16::from(area.height >= 8)),
                 Constraint::Length(1),
             ])
             .areas(area);
-            fields = [name, text];
+            fields = [name, text, checkbox];
+            row(
+                f,
+                checkbox,
+                if require_confirmation {
+                    "[x] Require confirmation to run"
+                } else {
+                    "[ ] Require confirmation to run"
+                },
+                if focus == Focus::Confirmation {
+                    palette.title
+                } else {
+                    palette.panel
+                },
+            );
             for (field, widget, label, active) in [
                 (
                     name,
@@ -382,7 +398,8 @@ pub fn editor(t: &mut Term, s: &Store, index: Option<usize>, palette: Palette) -
             row(f, msg, &error, Style::new().fg(palette.warning));
             let hint = match focus {
                 Focus::Title => " tab command field",
-                Focus::Command => " tab to save  ·  enter newline",
+                Focus::Command => " tab to confirmation  ·  enter newline",
+                Focus::Confirmation => " space to toggle  ·  tab to save",
                 Focus::Actions => " s or enter to save  ·  tab to edit",
             };
             row(f, help, hint, palette.inactive_subtitle);
@@ -407,6 +424,16 @@ pub fn editor(t: &mut Term, s: &Store, index: Option<usize>, palette: Palette) -
             row(f, close, " esc close ", palette.secondary);
         })?;
         let e = event::read()?;
+        if let Event::Mouse(mouse) = e {
+            if matches!(
+                mouse.kind,
+                MouseEventKind::ScrollUp | MouseEventKind::ScrollDown
+            ) && fields[1].contains((mouse.column, mouse.row).into())
+            {
+                cmd.input(mouse);
+                continue;
+            }
+        }
         let mut k = key(&e);
         if let Some(pos) = clicked(&e) {
             if buttons[0].contains(pos) {
@@ -419,6 +446,9 @@ pub fn editor(t: &mut Term, s: &Store, index: Option<usize>, palette: Palette) -
                     focus = Focus::Title
                 } else if fields[1].contains(pos) {
                     focus = Focus::Command
+                } else if fields[2].contains(pos) {
+                    focus = Focus::Confirmation;
+                    require_confirmation = !require_confirmation;
                 }
                 continue;
             }
@@ -427,10 +457,15 @@ pub fn editor(t: &mut Term, s: &Store, index: Option<usize>, palette: Palette) -
             Some(K::Esc) => return Ok(()),
             Some(K::Tab | K::BackTab) => {
                 focus = match (focus, k == Some(K::BackTab)) {
-                    (Focus::Title, false) | (Focus::Actions, true) => Focus::Command,
-                    (Focus::Command, false) | (Focus::Title, true) => Focus::Actions,
+                    (Focus::Title, false) | (Focus::Confirmation, true) => Focus::Command,
+                    (Focus::Command, false) | (Focus::Actions, true) => Focus::Confirmation,
+                    (Focus::Confirmation, false) | (Focus::Title, true) => Focus::Actions,
                     _ => Focus::Title,
                 };
+                continue;
+            }
+            Some(K::Char(' ') | K::Enter) if focus == Focus::Confirmation => {
+                require_confirmation = !require_confirmation;
                 continue;
             }
             Some(K::Enter) if focus == Focus::Title => {
@@ -444,6 +479,7 @@ pub fn editor(t: &mut Term, s: &Store, index: Option<usize>, palette: Palette) -
                 let entry = Entry {
                     title: title.lines().join(" "),
                     command: cmd.lines().join("\n"),
+                    require_confirmation,
                 };
                 match s.save(index.zip(old.as_ref()), entry) {
                     Ok(()) => return Ok(()),
@@ -456,7 +492,7 @@ pub fn editor(t: &mut Term, s: &Store, index: Option<usize>, palette: Palette) -
         let widget = match focus {
             Focus::Title => &mut title,
             Focus::Command => &mut cmd,
-            Focus::Actions => continue,
+            Focus::Actions | Focus::Confirmation => continue,
         };
         match e {
             Event::Paste(s) => {
@@ -474,32 +510,55 @@ pub fn editor(t: &mut Term, s: &Store, index: Option<usize>, palette: Palette) -
         }
     }
 }
-pub fn confirm_delete(t: &mut Term, store: &Store, index: usize, palette: Palette) -> Result<()> {
-    let entry = store
-        .entries()?
-        .get(index)
-        .cloned()
-        .context("Command no longer exists")?;
+pub fn confirm(
+    t: &mut Term,
+    entry: &Entry,
+    prompt: Option<&str>,
+    button: &str,
+    palette: Palette,
+    confirm_action: impl Fn() -> Result<()>,
+) -> Result<()> {
     let mut error = String::new();
     let mut scroll = 0u16;
     loop {
         let mut buttons = [Rect::default(); 2];
         let mut max_scroll = 0;
+        let mut page = 1;
         t.draw(|f| {
             let area = f.area();
             f.render_widget(Block::default().style(palette.panel), area);
-            let [title, body, message, actions] = Layout::vertical([
-                Constraint::Length(u16::from(!entry.title.is_empty())),
+            let [question, title, body, message, actions] = Layout::vertical([
+                Constraint::Length(u16::from(prompt.is_some())),
+                Constraint::Length(if prompt.is_some() {
+                    3
+                } else {
+                    u16::from(!entry.title.is_empty())
+                }),
                 Constraint::Min(1),
                 Constraint::Length(u16::from(!error.is_empty())),
                 Constraint::Length(1),
             ])
             .areas(area);
-            row(f, title, &entry.title, palette.panel.bold());
+            row(f, question, prompt.unwrap_or_default(), palette.panel);
+            if prompt.is_some() {
+                f.render_widget(
+                    Paragraph::new(entry.title.as_str())
+                        .style(palette.panel)
+                        .block(
+                            Block::bordered()
+                                .title(" Title ")
+                                .border_style(palette.inactive_subtitle),
+                        ),
+                    title,
+                );
+            } else {
+                row(f, title, &entry.title, palette.panel.bold());
+            }
             let block = Block::bordered()
                 .title(" Command ")
                 .border_style(palette.inactive_subtitle);
             let inner = block.inner(body);
+            page = inner.height.max(1);
             f.render_widget(block, body);
             let command = Paragraph::new(entry.command.as_str())
                 .style(palette.panel)
@@ -511,15 +570,16 @@ pub fn confirm_delete(t: &mut Term, store: &Store, index: usize, palette: Palett
             scroll = scroll.min(max_scroll);
             f.render_widget(command.scroll((scroll, 0)), inner);
             row(f, message, &error, Style::new().fg(palette.warning));
-            let strip = center(actions, 24, 1);
-            let [delete, _, cancel] = Layout::horizontal([
-                Constraint::Length(10),
+            let width = button.len() as u16;
+            let strip = center(actions, width + 14, 1);
+            let [accept, _, cancel] = Layout::horizontal([
+                Constraint::Length(width),
                 Constraint::Length(2),
                 Constraint::Length(12),
             ])
             .areas(strip);
-            buttons = [delete, cancel];
-            row(f, delete, " y delete ", palette.primary);
+            buttons = [accept, cancel];
+            row(f, accept, button, palette.primary);
             row(f, cancel, " esc cancel ", palette.secondary);
         })?;
         let event = event::read()?;
@@ -539,11 +599,13 @@ pub fn confirm_delete(t: &mut Term, store: &Store, index: usize, palette: Palett
             }
         }
         match action {
-            Some(K::Char('y')) => match store.delete(index, &entry) {
+            Some(K::Char('y')) => match confirm_action() {
                 Ok(()) => return Ok(()),
                 Err(e) => error = e.to_string(),
             },
             Some(K::Esc | K::Char('n')) => return Ok(()),
+            Some(K::PageDown) => scroll = scroll.saturating_add(page).min(max_scroll),
+            Some(K::PageUp) => scroll = scroll.saturating_sub(page),
             Some(K::Down) => scroll = scroll.saturating_add(1).min(max_scroll),
             Some(K::Up) => scroll = scroll.saturating_sub(1),
             _ => {}

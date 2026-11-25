@@ -52,10 +52,13 @@ The installer downloads the prebuilt binary for your platform and verifies its S
 | Shelf | **Esc** or **q** | Return to the original shell |
 | New or Edit popup | **Tab** / **Shift+Tab** | Move between fields and Save |
 | New or Edit popup | **s** or **Enter** with Save focused | Save the command |
+| New or Edit popup | **Space** with the checkbox focused | Toggle **Require confirmation to run** |
+| New, Edit, or Confirm Run | **↑** / **↓**, **Page Up** / **Page Down**, or mouse wheel over the command | Scroll through a multiline command (focus the command for keyboard scrolling in New or Edit) |
+| Confirm Run popup | **y** / **Esc** | Run / cancel |
 | Delete popup | **y** | Confirm deletion |
 | Any popup | **Esc** | Cancel |
 
-The footer buttons are clickable. Long and multiline commands display a one-line preview with an ellipsis. Edit shows the full text. New, Edit, and Delete use floating popups centered over the workspace.
+The footer buttons are clickable. Long and multiline commands display a one-line preview with an ellipsis. Edit shows the full text. Enable **Require confirmation to run** in New or Edit to review the full command and its destination each time you run it. Click **Run** to send it or **Cancel** to return to the shelf. The checkbox defaults to off for new and existing commands. New, Edit, and Delete use floating popups centered over the workspace.
 
 ## Configuration
 
@@ -76,6 +79,30 @@ Open and Bind use the focused pane when invoked. From a checkout, run `./scripts
 ## State and cleanup
 
 Commands and the target live under `HERDR_PLUGIN_STATE_DIR/tabs/`, keyed by Herdr session and tab ID. Renaming the tab, rebinding, or closing and reopening the shelf preserves the list. Use **d** to review and delete an entry.
+
+### Finding and editing a tab’s files
+
+| Platform | Default plugin state directory |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%\herdr\plugins\herdr-command-shelf` |
+| Linux and macOS | `~/.local/state/herdr/plugins/herdr-command-shelf` |
+
+If Herdr uses `XDG_STATE_HOME`, start in `$XDG_STATE_HOME/herdr/plugins/herdr-command-shelf` instead. Inside the plugin state directory, each tab has a `tabs/<session-hash>/<tab-id-in-hex>/` folder. The session hash is the SHA-256 of the session socket path. Use `herdr tab list` to find the tab ID. For example, `w1:t1` is stored in `77313a7431`. To locate candidate files, run `Get-ChildItem .\tabs -Filter commands.json -Recurse` in PowerShell or `find tabs -name commands.json` on Linux and macOS. Check the saved titles to identify the shelf.
+
+**commands.json** holds entries in display order. To edit by hand, close the shelf and its dialogs, edit the file as UTF-8 JSON without a byte-order mark, then reopen the shelf.
+
+```json
+[
+  {"title": "Run tests", "command": "cargo test"},
+  {"title": "Build and publish", "command": "cargo build --release\ncargo publish", "require_confirmation": true}
+]
+```
+
+Use an empty string for an untitled command and `\n` for a line break. Omitting `require_confirmation` defaults it to `false`. An empty list is `[]`.
+
+**target.json** holds the bound shell, for example `{"pane":"w1:p2","terminal":"term_2"}`. Both IDs identify the destination. Use the Bind action to write the current pair. A shelf with no binding can have no `target.json`.
+
+### Upgrading pane-owned shelves
 
 When upgrading from pane-owned shelves, quit the old shelves and leave their shells open. On first open in each tab, Command Shelf imports entries from those terminals. It prefers the opening pane’s saved binding, then the first available binding. Original files remain in place. Old data for closed terminals needs manual recovery because it contains no tab ID.
 
@@ -108,7 +135,7 @@ The linked checkout uses the binary in `target/release/`. To opt into building f
 
 Run `python3 tools/test_install.py` on Unix and `.\tools\test_install.ps1` in Windows PowerShell to test installation with fixture downloads, including rejection of a corrupt asset. For an interactive check, open the shelf, bind another shell, save and run a command, then cancel and confirm a deletion. Close the target and verify that Run stays disabled until you bind again.
 
-The workflow builds and smoke-tests all six release binaries on their native runners. Pull requests and pushes to main run checks. Manual runs upload build artifacts. To publish, align the versions in `Cargo.toml`, `Cargo.lock`, and `herdr-plugin.toml`, then push the corresponding version tag (for example, `v1.0.0`). The tag workflow publishes the binaries and their checksums. [Build and release workflow](.github/workflows/release.yml)
+The workflow builds and smoke-tests all six release binaries on their native runners. Pull requests and pushes to main run checks. Manual runs upload build artifacts. To publish, align the versions in `Cargo.toml`, `Cargo.lock`, and `herdr-plugin.toml`, then push the corresponding version tag (for example, `v1.0.1`). The tag workflow publishes the binaries and their checksums. [Build and release workflow](.github/workflows/release.yml)
 
 ## License
 

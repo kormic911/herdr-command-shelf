@@ -69,7 +69,45 @@ fn main() -> Result<()> {
                 }
                 Dialog::Delete { tab, index } => {
                     let store = Store::tab(&root, &tab)?;
-                    ui::terminal(|t| ui::confirm_delete(t, &store, index, palette))?;
+                    let entry = store
+                        .entries()?
+                        .get(index)
+                        .cloned()
+                        .context("Command no longer exists")?;
+                    ui::terminal(|t| {
+                        ui::confirm(t, &entry, None, " y delete ", palette, || {
+                            store.delete(index, &entry)
+                        })
+                    })?;
+                }
+                Dialog::Run {
+                    tab,
+                    index,
+                    fingerprint,
+                    target,
+                } => {
+                    let store = Store::tab(&root, &tab)?;
+                    let entry = store
+                        .entries()?
+                        .get(index)
+                        .cloned()
+                        .context("Command no longer exists")?;
+                    ensure!(
+                        entry.require_confirmation && entry.fingerprint()? == fingerprint,
+                        "Command changed. Select it again."
+                    );
+                    let name = herdr::get(&target.pane)
+                        .ok()
+                        .filter(|p| p.target() == target)
+                        .map(|p| p.name())
+                        .unwrap_or_else(|| target.pane.clone());
+                    let prompt = format!("Run this command in {name}?");
+                    ui::terminal(|t| {
+                        ui::confirm(t, &entry, Some(&prompt), " y run ", palette, || {
+                            store.check_run(index, &entry, &target)?;
+                            herdr::run(&root, &tab, &target, &entry.command)
+                        })
+                    })?;
                 }
             }
         }
@@ -83,6 +121,37 @@ mod tests {
     use super::*;
     use serde_json::json;
     use state::{Entry, Target};
+    #[test]
+    fn confirmation_is_opt_in_and_bound_to_the_reviewed_command_and_target() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let store = Store::tab(dir.path(), "w1:t1")?;
+        let legacy: Entry =
+            serde_json::from_value(json!({"title":"Tests","command":"cargo test"}))?;
+        assert!(!legacy.require_confirmation);
+        let guarded = Entry {
+            require_confirmation: true,
+            ..legacy.clone()
+        };
+        store.save(None, guarded.clone())?;
+        let target = Target {
+            pane: "w1:p2".into(),
+            terminal: "term_2".into(),
+        };
+        store.bind(&target)?;
+        let reviewed = store.entries()?.remove(0);
+        assert_eq!(reviewed, guarded);
+        store.check_run(0, &reviewed, &target)?;
+        let changed_target = Target {
+            terminal: "term_3".into(),
+            ..target.clone()
+        };
+        store.bind(&changed_target)?;
+        assert!(store.check_run(0, &reviewed, &target).is_err());
+        store.save(Some((0, &reviewed)), legacy)?;
+        assert!(store.check_run(0, &reviewed, &changed_target).is_err());
+        Ok(())
+    }
+
     #[test]
     fn target_header_uses_one_name_or_the_pane_id() {
         let mut info = json!({"pane_id":"w2:p1","terminal_id":"term_1","tab_id":"w2:t1","cwd":"/repo","agent_status":"unknown"});
@@ -135,10 +204,12 @@ mod tests {
         let original = Entry {
             title: "Tests".into(),
             command: "cargo test".into(),
+            require_confirmation: false,
         };
         let changed = Entry {
             title: "Build".into(),
             command: "cargo build".into(),
+            require_confirmation: false,
         };
         legacy.save(None, original.clone())?;
         let sources = [legacy];
@@ -167,6 +238,7 @@ mod tests {
         let entry = Entry {
             title: "Tests".into(),
             command: "cargo fmt\ncargo test".into(),
+            require_confirmation: false,
         };
         s.save(None, entry.clone())?;
         s.bind(&Target {
@@ -177,6 +249,7 @@ mod tests {
         let updated = Entry {
             title: "Test".into(),
             command: "cargo test".into(),
+            require_confirmation: false,
         };
         s.save(Some((0, &entry)), updated.clone())?;
         assert!(s.save(Some((0, &entry)), entry.clone()).is_err());

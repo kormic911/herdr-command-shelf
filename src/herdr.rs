@@ -115,8 +115,20 @@ pub fn run(root: &Path, tab: &str, t: &Target, command: &str) -> Result<()> {
 }
 #[derive(Serialize, Deserialize)]
 pub enum Dialog {
-    Editor { tab: String, index: Option<usize> },
-    Delete { tab: String, index: usize },
+    Editor {
+        tab: String,
+        index: Option<usize>,
+    },
+    Delete {
+        tab: String,
+        index: usize,
+    },
+    Run {
+        tab: String,
+        index: usize,
+        fingerprint: String,
+        target: Target,
+    },
 }
 pub fn dialog(d: Dialog) -> Result<()> {
     let payload = format!("COMMAND_SHELF_DIALOG={}", serde_json::to_string(&d)?);
@@ -124,6 +136,7 @@ pub fn dialog(d: Dialog) -> Result<()> {
         Dialog::Editor { index: Some(_), .. } => "edit-command",
         Dialog::Editor { index: None, .. } => "new-command",
         Dialog::Delete { .. } => "delete-command",
+        Dialog::Run { .. } => "confirm-run",
     };
     let entrypoint = if cfg!(windows) {
         format!("{mode}-windows")

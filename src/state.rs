@@ -12,6 +12,15 @@ use tempfile::NamedTempFile;
 pub struct Entry {
     pub title: String,
     pub command: String,
+    #[serde(default)]
+    pub require_confirmation: bool,
+}
+
+impl Entry {
+    pub fn fingerprint(&self) -> Result<String> {
+        use sha2::{Digest, Sha256};
+        Ok(format!("{:x}", Sha256::digest(serde_json::to_vec(self)?)))
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -129,6 +138,17 @@ impl Store {
     }
     pub fn target(&self) -> Result<Option<Target>> {
         self.read("target.json")
+    }
+    pub fn check_run(&self, index: usize, entry: &Entry, target: &Target) -> Result<()> {
+        anyhow::ensure!(
+            self.target()?.as_ref() == Some(target),
+            "Binding changed. Select the command again."
+        );
+        anyhow::ensure!(
+            self.entries()?.get(index) == Some(entry),
+            "Command changed. Select it again."
+        );
+        Ok(())
     }
     pub fn bind(&self, t: &Target) -> Result<()> {
         self.write("target.json", t)

@@ -1,6 +1,6 @@
 id = "herdr-command-shelf"
 name = "Command Shelf"
-version = "1.0.0"
+version = "1.0.1"
 min_herdr_version = "0.9.5"
 description = "Save commands in a shelf and run them in a bound shell pane."
 platforms = ["linux", "macos", "windows"]
@@ -80,6 +80,24 @@ command = ["./target/release/herdr-command-shelf", "dialog"]
 [[panes]]
 id = "delete-command-windows"
 title = "Delete Command"
+placement = "popup"
+width = "75%"
+height = "70%"
+platforms = ["windows"]
+command = ["powershell", "-NoProfile", "-Command", "& (Join-Path $env:HERDR_PLUGIN_ROOT 'target/release/herdr-command-shelf.exe') dialog"]
+
+[[panes]]
+id = "confirm-run"
+title = "Confirm Run"
+placement = "popup"
+width = "75%"
+height = "70%"
+platforms = ["linux", "macos"]
+command = ["./target/release/herdr-command-shelf", "dialog"]
+
+[[panes]]
+id = "confirm-run-windows"
+title = "Confirm Run"
 placement = "popup"
 width = "75%"
 height = "70%"
