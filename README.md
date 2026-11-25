@@ -21,13 +21,11 @@ All hosts require Herdr 0.9.5 or newer. On Windows, the shelf can start from a P
 
 ## Install
 
-Once the matching GitHub release is published, install the plugin from the repository. Herdr downloads the version in the plugin manifest and the installer verifies its SHA-256 checksum. No Rust toolchain is required.
-
 ```sh
 herdr plugin install kormic911/herdr-command-shelf --yes
 ```
 
-For a local preview before release, see [Development](#development).
+The installer downloads the prebuilt binary for your platform and verifies its SHA-256 checksum. You can install Command Shelf without Rust.
 
 ## First run
 
@@ -93,7 +91,7 @@ Run checks the tab, pane and terminal identity and blocks input to a reported ag
 | --- | --- |
 | Shortcut does nothing | Run the binding installer and check for a skipped chord with `herdr plugin log list --plugin herdr-command-shelf --limit 3`. Use the configured prefix followed by the function key. |
 | Run is disabled | Focus a shell prompt in the same tab and bind it. A closed or replaced terminal requires an explicit rebind. |
-| Release download returns 404 | Check that the tag matching the manifest has published assets. Use the linked checkout procedure for an unreleased version. |
+| Release download returns 404 | Check that the release for the version in `herdr-plugin.toml` includes the binary and checksum for your platform. |
 | Windows build or update reports a locked executable or LNK1104 | Close all shelf panes and dialogs using that binary, then retry. |
 
 ## Development
