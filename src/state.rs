@@ -23,6 +23,15 @@ pub struct Target {
 #[derive(Clone)]
 pub struct Store(pub PathBuf);
 
+pub struct ShelfLease(File);
+
+impl Drop for ShelfLease {
+    fn drop(&mut self) {
+        // A subprocess can briefly inherit the descriptor before exec closes it.
+        let _ = FileExt::unlock(&self.0);
+    }
+}
+
 impl Store {
     pub fn new(root: &Path, terminal: &str) -> Result<Self> {
         anyhow::ensure!(
@@ -79,10 +88,10 @@ impl Store {
             .write(true)
             .open(self.0.join(name))?)
     }
-    pub fn claim(&self) -> Result<File> {
+    pub fn claim(&self) -> Result<ShelfLease> {
         let f = self.lock("live")?;
         FileExt::try_lock_exclusive(&f).context("Shelf already open")?;
-        Ok(f)
+        Ok(ShelfLease(f))
     }
     pub fn live(&self) -> Result<bool> {
         let f = match File::open(self.0.join("live")) {
@@ -146,5 +155,24 @@ impl Store {
             entries.push(entry);
         }
         self.write("commands.json", &entries)
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ending_lease_releases_lock_with_a_duplicate_descriptor() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let store = Store::new(root.path(), "term_1")?;
+        let lease = store.claim()?;
+        let duplicate = lease.0.try_clone()?;
+        drop(lease);
+        assert!(!store.live()?);
+        let _next = store.claim()?;
+        drop(duplicate);
+        assert!(store.live()?);
+        Ok(())
     }
 }
