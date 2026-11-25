@@ -13,6 +13,9 @@ command = ["bash", "scripts/install.sh"]
 platforms = ["windows"]
 command = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/install.ps1"]
 
+[[startup]]
+command = ["./target/release/herdr-command-shelf", "restore"]
+
 [[actions]]
 id = "install-keybindings"
 title = "Install Command Shelf key bindings"

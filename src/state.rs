@@ -29,6 +29,12 @@ pub struct Target {
     pub terminal: String,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct Placement {
+    pub pane: String,
+    pub original_label: Option<String>,
+}
+
 #[derive(Clone)]
 pub struct Store(pub PathBuf);
 
@@ -132,6 +138,18 @@ impl Store {
         f.as_file().sync_all()?;
         f.persist(self.0.join(name))?;
         Ok(())
+    }
+    pub fn placement(&self) -> Result<Option<Placement>> {
+        self.read("placement.json")
+    }
+    pub fn remember_placement(&self, placement: &Placement) -> Result<()> {
+        self.write("placement.json", placement)
+    }
+    pub fn forget_placement(&self) -> Result<()> {
+        match fs::remove_file(self.0.join("placement.json")) {
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
+            result => Ok(result?),
+        }
     }
     pub fn entries(&self) -> Result<Vec<Entry>> {
         self.read("commands.json")

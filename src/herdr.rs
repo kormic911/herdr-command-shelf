@@ -189,6 +189,86 @@ pub fn open(root: &Path, p: Pane) -> Result<()> {
         }
         return Ok(());
     }
+    launch(root, &p)
+}
+
+// Startup must never focus a shelf or substitute another pane for its host.
+pub fn restore(root: &Path) -> Result<()> {
+    let mut failures = Vec::new();
+    for pane in panes()?
+        .into_iter()
+        .filter(|p| p.label.as_deref() == Some("Command Shelf"))
+    {
+        if let Err(error) = restore_pane(root, &pane) {
+            failures.push(format!("{}: {error}", pane.pane_id));
+        }
+    }
+    ensure!(failures.is_empty(), "{}", failures.join(", "));
+    Ok(())
+}
+
+fn restore_pane(root: &Path, pane: &Pane) -> Result<()> {
+    let store = Store::tab(root, &pane.tab_id)?;
+    let matches_host = || -> Result<bool> {
+        Ok(store
+            .placement()?
+            .is_some_and(|placement| placement.pane == pane.pane_id))
+    };
+    if !matches_host()? {
+        return Ok(());
+    }
+    let _launch = store.launch_lock()?;
+    let current = get(&pane.pane_id)?;
+    if store.live()?
+        || !matches_host()?
+        || current.tab_id != pane.tab_id
+        || current.target() != pane.target()
+        || current.label.as_deref() != Some("Command Shelf")
+        || current.ready().is_err()
+    {
+        return Ok(());
+    }
+    let info = call(&["pane", "process-info", "--pane", &current.pane_id])?;
+    if !foreground_shell(&info["process_info"]) {
+        return Ok(());
+    }
+    launch(root, &current)
+}
+
+fn foreground_shell(info: &Value) -> bool {
+    let Some(pid) = info["shell_pid"].as_u64() else {
+        return false;
+    };
+    info["foreground_process_group_id"].as_u64() == Some(pid)
+        && info["foreground_processes"]
+            .as_array()
+            .is_some_and(|processes| {
+                processes.len() == 1
+                    && processes[0]["pid"].as_u64() == Some(pid)
+                    && processes[0]["name"].as_str().is_some_and(|name| {
+                        let lower = name
+                            .rsplit(['/', '\\'])
+                            .next()
+                            .unwrap_or(name)
+                            .trim_start_matches('-')
+                            .to_ascii_lowercase();
+                        matches!(
+                            lower.trim_end_matches(".exe"),
+                            "sh" | "bash"
+                                | "dash"
+                                | "zsh"
+                                | "fish"
+                                | "ksh"
+                                | "mksh"
+                                | "cmd"
+                                | "pwsh"
+                                | "powershell"
+                        )
+                    })
+            })
+}
+
+fn launch(root: &Path, p: &Pane) -> Result<()> {
     let exe = env::current_exe()?;
     let exe = exe.to_str().context("Invalid executable path")?;
     #[cfg(windows)]
@@ -277,6 +357,19 @@ fn quote_word(word: &str, powershell: bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn restore_requires_a_foreground_shell() {
+        let mut info = serde_json::json!({"shell_pid": 10, "foreground_process_group_id": 10,
+            "foreground_processes": [{"pid":10,"name":"pwsh.exe"}]});
+        assert!(foreground_shell(&info));
+        info["foreground_process_group_id"] = 11.into();
+        assert!(!foreground_shell(&info));
+        info["foreground_process_group_id"] = 10.into();
+        info["foreground_processes"][0]["name"] = "vim".into();
+        assert!(!foreground_shell(&info));
+        assert!(!foreground_shell(&Value::Null));
+    }
 
     #[test]
     fn windows_launcher_paths() {

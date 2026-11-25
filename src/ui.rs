@@ -261,7 +261,7 @@ pub fn shelf(t: &mut Term, root: &Path, s: &Store, p: &Pane, mut theme: Theme) -
             }
         }
         let action = match k {
-            Some(K::Char('q') | K::Esc) => return Ok(()),
+            Some(K::Char('q') | K::Esc) => return s.forget_placement(),
             Some(K::Up) => {
                 selected = selected.saturating_sub(1);
                 continue;

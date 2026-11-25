@@ -34,6 +34,8 @@ The installer downloads the prebuilt binary for your platform and verifies its S
 3. Focus the shell where commands should run. Press the prefix, release it, then press **F3**. Check **Run in** on the shelf for the pane title or ID. Changing focus preserves the binding.
 4. In the shelf, press **n**, enter an optional title, and paste the command into the multiline field. Click **Save**. Click the saved entry to run it. The shelf stays open.
 
+If you stop the Herdr server with the shelf open, starting Herdr again reopens it in the same restored pane. Close the shelf with **Esc** or **q** to keep it closed. After upgrading, open the shelf once to record its placement. If Herdr recreates the target terminal, use **prefix then F3** in the target shell to bind it again.
+
 ## Actions
 
 | Herdr action ID | Invoke from | Effect |

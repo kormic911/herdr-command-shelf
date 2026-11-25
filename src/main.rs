@@ -26,6 +26,7 @@ fn main() -> Result<()> {
         ["--version"] => println!("Command Shelf {}", env!("CARGO_PKG_VERSION")),
         ["install-keybindings"] => bindings::install()?,
         ["open"] => herdr::open(&state_dir()?, herdr::origin()?)?,
+        ["restore"] => herdr::restore(&state_dir()?)?,
         ["bind"] => herdr::bind(&state_dir()?, herdr::origin()?)?,
         ["shelf", root, id, terminal] => {
             let root = Path::new(root);
@@ -44,13 +45,25 @@ fn main() -> Result<()> {
             }
             s.migrate(&sources)?;
             let _pane_lease = sources[0].claim()?;
+            let mut original_label = p.label.clone();
+            if p.label.as_deref() == Some("Command Shelf") {
+                if let Some(previous) = s.placement()?.filter(|placement| placement.pane == *id) {
+                    original_label = previous.original_label;
+                }
+            }
+            s.remember_placement(&state::Placement {
+                pane: id.to_string(),
+                original_label: original_label.clone(),
+            })?;
             herdr::call(&["pane", "rename", id, "Command Shelf"])?;
             let theme = theme::Theme::load();
             let result = ui::terminal(|t| ui::shelf(t, root, &s, &p, theme));
-            if herdr::get(id).is_ok_and(|live| {
-                live.target() == p.target() && live.label.as_deref() == Some("Command Shelf")
-            }) {
-                if let Some(label) = p.label {
+            if result.is_ok()
+                && herdr::get(id).is_ok_and(|live| {
+                    live.target() == p.target() && live.label.as_deref() == Some("Command Shelf")
+                })
+            {
+                if let Some(label) = original_label {
                     herdr::call(&["pane", "rename", id, &label])?;
                 } else {
                     herdr::call(&["pane", "rename", id, "--clear"])?;
