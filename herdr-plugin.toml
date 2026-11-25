@@ -1,0 +1,87 @@
+id = "herdr-command-shelf"
+name = "Command Shelf"
+version = "0.1.0"
+min_herdr_version = "0.9.5"
+description = "Save commands in a shelf and run them in a bound shell pane."
+platforms = ["linux", "macos", "windows"]
+
+[[build]]
+platforms = ["linux", "macos"]
+command = ["bash", "scripts/install.sh"]
+
+[[build]]
+platforms = ["windows"]
+command = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/install.ps1"]
+
+[[actions]]
+id = "install-keybindings"
+title = "Install Command Shelf key bindings"
+description = "Add missing shortcuts and reload Herdr configuration."
+contexts = ["global", "workspace", "pane"]
+command = ["./target/release/herdr-command-shelf", "install-keybindings"]
+
+[[actions]]
+id = "open"
+title = "Open Command Shelf in this shell"
+contexts = ["pane"]
+command = ["./target/release/herdr-command-shelf", "open"]
+
+[[actions]]
+id = "bind"
+title = "Bind this shell to Command Shelf"
+contexts = ["pane"]
+command = ["./target/release/herdr-command-shelf", "bind"]
+
+[[panes]]
+id = "new-command"
+title = "New Command"
+placement = "popup"
+width = "75%"
+height = "70%"
+platforms = ["linux", "macos"]
+command = ["./target/release/herdr-command-shelf", "dialog"]
+
+[[panes]]
+id = "new-command-windows"
+title = "New Command"
+placement = "popup"
+width = "75%"
+height = "70%"
+platforms = ["windows"]
+command = ["powershell", "-NoProfile", "-Command", "& (Join-Path $env:HERDR_PLUGIN_ROOT 'target/release/herdr-command-shelf.exe') dialog"]
+
+[[panes]]
+id = "edit-command"
+title = "Edit Command"
+placement = "popup"
+width = "75%"
+height = "70%"
+platforms = ["linux", "macos"]
+command = ["./target/release/herdr-command-shelf", "dialog"]
+
+[[panes]]
+id = "edit-command-windows"
+title = "Edit Command"
+placement = "popup"
+width = "75%"
+height = "70%"
+platforms = ["windows"]
+command = ["powershell", "-NoProfile", "-Command", "& (Join-Path $env:HERDR_PLUGIN_ROOT 'target/release/herdr-command-shelf.exe') dialog"]
+
+[[panes]]
+id = "delete-command"
+title = "Delete Command"
+placement = "popup"
+width = "75%"
+height = "70%"
+platforms = ["linux", "macos"]
+command = ["./target/release/herdr-command-shelf", "dialog"]
+
+[[panes]]
+id = "delete-command-windows"
+title = "Delete Command"
+placement = "popup"
+width = "75%"
+height = "70%"
+platforms = ["windows"]
+command = ["powershell", "-NoProfile", "-Command", "& (Join-Path $env:HERDR_PLUGIN_ROOT 'target/release/herdr-command-shelf.exe') dialog"]

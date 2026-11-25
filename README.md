@@ -1,0 +1,114 @@
+# Command Shelf
+
+Save commands for a Herdr tab and run them in a shell you choose. Each tab has its own list, one shelf, and one bound shell. Clicking a command runs it with that shell’s current directory and environment.
+
+[![Herdr 0.9.5 or newer](https://img.shields.io/badge/Herdr-0.9.5%2B-blue)](https://herdr.dev/docs/plugins/)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+## Requirements
+
+| Host | Release binary | Installer requirements |
+| --- | --- | --- |
+| Linux x64 or ARM64 | Static musl executable for the host architecture | Bash, curl, and either sha256sum or shasum |
+| macOS on Intel or Apple Silicon | Native executable for each architecture | Bash, curl, and shasum or sha256sum |
+| Windows x64 | x64 MSVC executable | Windows PowerShell 5.1 |
+| Windows ARM64 | Same x64 executable | Windows with x64 emulation and Windows PowerShell 5.1 |
+
+All hosts require Herdr 0.9.5 or newer. On Windows, the shelf can start from a PowerShell or cmd prompt.
+
+## Install
+
+Once the matching GitHub release is published, install the plugin from the repository. Herdr downloads the version in the plugin manifest and the installer verifies its SHA-256 checksum. No Rust toolchain is required.
+
+```sh
+herdr plugin install kormic911/herdr-command-shelf --yes
+```
+
+For a local preview before release, see [Development](#development).
+
+## First run
+
+1. Run **Install Command Shelf key bindings** from Herdr’s plugin actions.
+2. Focus a spare shell prompt, for example one you created by splitting Notes down. Press the Herdr prefix (**Ctrl+B** by default), release it, then press **F2**. The pane becomes **Command Shelf**. If the tab already has an open shelf, this focuses it.
+3. Focus the shell where commands should run. Press the prefix, release it, then press **F3**. Check **Run in** on the shelf for the pane title or ID. Changing focus preserves the binding.
+4. In the shelf, press **n**, enter an optional title, and paste the command into the multiline field. Click **Save**. Click the saved entry to run it. The shelf stays open.
+
+## Actions
+
+| Herdr action ID | Invoke from | Effect |
+| --- | --- | --- |
+| `install-keybindings` | Anywhere | Add missing shortcuts, validate the configuration and reload Herdr. |
+| `open` | A spare shell prompt | Open or focus this tab’s shelf. |
+| `bind` | The destination shell in that tab | Set the target for subsequent runs. |
+
+## Key bindings
+
+| Where | Keys | Action |
+| --- | --- | --- |
+| Herdr | Prefix then **F2** / **F3** | Open shelf / bind focused shell |
+| Shelf | **↑** / **↓**, then **Enter** | Select a command and run it |
+| Shelf | **n** / **e** / **d** | New / edit / delete selected command |
+| Shelf | **Esc** or **q** | Return to the original shell |
+| New or Edit popup | **Tab** / **Shift+Tab** | Move between fields and Save |
+| New or Edit popup | **s** or **Enter** with Save focused | Save the command |
+| Delete popup | **y** | Confirm deletion |
+| Any popup | **Esc** | Cancel |
+
+The footer buttons are clickable. Long and multiline commands display a one-line preview with an ellipsis. Edit shows the full text. New, Edit, and Delete use floating popups centered over the workspace.
+
+## Configuration
+
+The binding installer uses the configuration path reported by `herdr --help`. It preserves existing assignments and reports conflicts in the plugin log. To change a shortcut, edit its `[[keys.command]]` entry in Herdr’s configuration.
+
+The shelf uses Herdr’s workspace selection colors and Settings button colors. It reads saved theme changes while open. With automatic theme switching, reopen the shelf after changing the terminal’s light or dark appearance.
+
+## Driving the plugin from scripts
+
+```sh
+herdr plugin action invoke install-keybindings --plugin herdr-command-shelf
+herdr plugin action invoke herdr-command-shelf.open
+herdr plugin action invoke herdr-command-shelf.bind
+```
+
+Open and Bind use the focused pane when invoked. From a checkout, run `./scripts/install-keybindings.sh` or `.\scripts\install-keybindings.ps1` to see binding installer output directly.
+
+## State and cleanup
+
+Commands and the target live under `HERDR_PLUGIN_STATE_DIR/tabs/`, keyed by Herdr session and tab ID. Renaming the tab, rebinding, or closing and reopening the shelf preserves the list. Use **d** to review and delete an entry.
+
+When upgrading from pane-owned shelves, quit the old shelves and leave their shells open. On first open in each tab, Command Shelf imports entries from those terminals. It prefers the opening pane’s saved binding, then the first available binding. Original files remain in place. Old data for closed terminals needs manual recovery because it contains no tab ID.
+
+## Trust and security
+
+Command Shelf stores commands as plain text. For credentials, use references that your shell resolves at execution time.
+
+Run checks the tab, pane and terminal identity and blocks input to a reported agent, including an idle agent. Herdr checks status and sends input in separate calls. A foreground program can receive the command if it takes over the target. Bind a shell you intend to use for commands.
+
+## Troubleshooting
+
+| Symptom | What to check |
+| --- | --- |
+| Shortcut does nothing | Run the binding installer and check for a skipped chord with `herdr plugin log list --plugin herdr-command-shelf --limit 3`. Use the configured prefix followed by the function key. |
+| Run is disabled | Focus a shell prompt in the same tab and bind it. A closed or replaced terminal requires an explicit rebind. |
+| Release download returns 404 | Check that the tag matching the manifest has published assets. Use the linked checkout procedure for an unreleased version. |
+| Windows build or update reports a locked executable or LNK1104 | Close all shelf panes and dialogs using that binary, then retry. |
+
+## Development
+
+```sh
+cargo build --release --locked
+herdr plugin link .
+cargo fmt --check
+cargo test --locked
+cargo clippy --locked --all-targets -- -D warnings
+```
+
+The linked checkout uses the binary in `target/release/`. To opt into building from source during plugin installation, set `HERDR_COMMAND_SHELF_BUILD_FROM_SOURCE=1` in the installer environment.
+
+Run `python3 tools/test_install_unix.py` on Unix and `.\tools\test_install.ps1` in Windows PowerShell to test installation with fixture downloads, including rejection of a corrupt asset. For an interactive check, open the shelf, bind another shell, save and run a command, then cancel and confirm a deletion. Close the target and verify that Run stays disabled until you bind again.
+
+The workflow builds and smoke-tests all five release binaries on their native runners. Pull requests and pushes to main run checks. Manual runs upload build artifacts. To publish, align the versions in `Cargo.toml`, `Cargo.lock`, and `herdr-plugin.toml`, then push the corresponding version tag (for example, `v0.1.0`). The tag workflow publishes the binaries and their checksums. [Build and release workflow](.github/workflows/release.yml)
+
+## License
+
+Command Shelf uses the MIT license. The release installers, installer fixtures, and packaging workflow are adapted from herdr-notes. [License](LICENSE) · [herdr-notes notice](scripts/LICENSE-notes)
