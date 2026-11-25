@@ -2,8 +2,11 @@
 
 Save commands for a Herdr tab and run them in a shell you choose. Each tab has its own list, one shelf, and one bound shell. Clicking a command runs it with that shell’s current directory and environment.
 
-[![Herdr 0.9.5 or newer](https://img.shields.io/badge/Herdr-0.9.5%2B-blue)](https://herdr.dev/docs/plugins/)
-[![MIT license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Herdr plugin](https://img.shields.io/badge/herdr-plugin-76e6a3?style=for-the-badge)](https://herdr.dev/plugins)
+[![Requires Herdr 0.9.5 or newer](https://img.shields.io/badge/herdr-%E2%89%A50.9.5-6db8ff?style=for-the-badge)](https://herdr.dev/docs/plugins/)
+![Linux, macOS and Windows](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-f2c66d?style=for-the-badge)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/kormic911/herdr-command-shelf/release.yml?branch=main&label=CI&style=for-the-badge)](https://github.com/kormic911/herdr-command-shelf/actions/workflows/release.yml)
 
 ## Requirements
 
