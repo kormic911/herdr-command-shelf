@@ -1,6 +1,6 @@
 id = "herdr-command-shelf"
 name = "Command Shelf"
-version = "0.1.0"
+version = "1.0.0"
 min_herdr_version = "0.9.5"
 description = "Save commands in a shelf and run them in a bound shell pane."
 platforms = ["linux", "macos", "windows"]

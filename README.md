@@ -108,7 +108,7 @@ The linked checkout uses the binary in `target/release/`. To opt into building f
 
 Run `python3 tools/test_install.py` on Unix and `.\tools\test_install.ps1` in Windows PowerShell to test installation with fixture downloads, including rejection of a corrupt asset. For an interactive check, open the shelf, bind another shell, save and run a command, then cancel and confirm a deletion. Close the target and verify that Run stays disabled until you bind again.
 
-The workflow builds and smoke-tests all six release binaries on their native runners. Pull requests and pushes to main run checks. Manual runs upload build artifacts. To publish, align the versions in `Cargo.toml`, `Cargo.lock`, and `herdr-plugin.toml`, then push the corresponding version tag (for example, `v0.1.0`). The tag workflow publishes the binaries and their checksums. [Build and release workflow](.github/workflows/release.yml)
+The workflow builds and smoke-tests all six release binaries on their native runners. Pull requests and pushes to main run checks. Manual runs upload build artifacts. To publish, align the versions in `Cargo.toml`, `Cargo.lock`, and `herdr-plugin.toml`, then push the corresponding version tag (for example, `v1.0.0`). The tag workflow publishes the binaries and their checksums. [Build and release workflow](.github/workflows/release.yml)
 
 ## License
 
