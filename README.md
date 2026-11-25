@@ -15,7 +15,7 @@ Save commands for a Herdr tab and run them in a shell you choose. Each tab has i
 | Linux x64 or ARM64 | Static musl executable for the host architecture | Bash, curl, and either sha256sum or shasum |
 | macOS on Intel or Apple Silicon | Native executable for each architecture | Bash, curl, and shasum or sha256sum |
 | Windows x64 | x64 MSVC executable | Windows PowerShell 5.1 |
-| Windows ARM64 | Same x64 executable | Windows with x64 emulation and Windows PowerShell 5.1 |
+| Windows ARM64 | Native ARM64 MSVC executable | Windows PowerShell 5.1 |
 
 All hosts require Herdr 0.9.5 or newer. On Windows, the shelf can start from a PowerShell or cmd prompt.
 
@@ -110,7 +110,7 @@ The linked checkout uses the binary in `target/release/`. To opt into building f
 
 Run `python3 tools/test_install.py` on Unix and `.\tools\test_install.ps1` in Windows PowerShell to test installation with fixture downloads, including rejection of a corrupt asset. For an interactive check, open the shelf, bind another shell, save and run a command, then cancel and confirm a deletion. Close the target and verify that Run stays disabled until you bind again.
 
-The workflow builds and smoke-tests all five release binaries on their native runners. Pull requests and pushes to main run checks. Manual runs upload build artifacts. To publish, align the versions in `Cargo.toml`, `Cargo.lock`, and `herdr-plugin.toml`, then push the corresponding version tag (for example, `v0.1.0`). The tag workflow publishes the binaries and their checksums. [Build and release workflow](.github/workflows/release.yml)
+The workflow builds and smoke-tests all six release binaries on their native runners. Pull requests and pushes to main run checks. Manual runs upload build artifacts. To publish, align the versions in `Cargo.toml`, `Cargo.lock`, and `herdr-plugin.toml`, then push the corresponding version tag (for example, `v0.1.0`). The tag workflow publishes the binaries and their checksums. [Build and release workflow](.github/workflows/release.yml)
 
 ## License
 

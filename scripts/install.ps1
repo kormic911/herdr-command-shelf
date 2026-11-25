@@ -13,10 +13,14 @@ $Manifest = Get-Content -LiteralPath (Join-Path $PluginRoot 'herdr-plugin.toml')
 $Match = [regex]::Match($Manifest, '(?m)^version = "([0-9]+\.[0-9]+\.[0-9]+)"\r?$')
 if (-not $Match.Success) { throw 'Cannot determine plugin release version.' }
 $Version = $Match.Groups[1].Value
-$Architecture = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
-if ($Architecture -notin @('AMD64', 'ARM64')) { throw "Unsupported Windows architecture: $Architecture" }
-# Windows ARM64 runs the x64 binary using Windows' x64 emulation.
-$Asset = "herdr-command-shelf-v$Version-x86_64-pc-windows-msvc.exe"
+# Read the machine architecture even when Herdr launches an emulated PowerShell.
+$Architecture = Get-ItemPropertyValue -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' -Name PROCESSOR_ARCHITECTURE
+$Target = switch ($Architecture) {
+    'AMD64' { 'x86_64-pc-windows-msvc' }
+    'ARM64' { 'aarch64-pc-windows-msvc' }
+    default { throw "Unsupported Windows architecture: $Architecture" }
+}
+$Asset = "herdr-command-shelf-v$Version-$Target.exe"
 $Base = "https://github.com/kormic911/herdr-command-shelf/releases/download/v$Version"
 $Destination = Join-Path $PluginRoot 'target/release'
 New-Item -ItemType Directory -Force -Path $Destination | Out-Null
@@ -36,7 +40,7 @@ try {
     finally { $Stream.Dispose(); $Hasher.Dispose() }
     if ($Actual -ine $Checksum) { throw 'Release checksum mismatch. Binary was not installed.' }
     Move-Item -LiteralPath (Join-Path $Temp $Asset) -Destination (Join-Path $Destination 'herdr-command-shelf.exe') -Force
-    Write-Output "Installed herdr-command-shelf v$Version (Windows x64); Rust is not required."
+    Write-Output "Installed herdr-command-shelf v$Version ($Target); Rust is not required."
 } finally {
     # Temp is a newly created child of this plugin's target/release directory.
     if ((Split-Path -Parent ([IO.Path]::GetFullPath($Temp))) -ne [IO.Path]::GetFullPath($Destination)) { throw 'Invalid temporary directory.' }
