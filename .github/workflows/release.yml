@@ -45,7 +45,7 @@ jobs:
         shell: powershell
         run: ./tools/test_install.ps1
       - if: runner.os != 'Windows'
-        run: python3 tools/test_install_unix.py
+        run: python3 tools/test_install.py
       - name: Smoke test compiled binary
         shell: bash
         run: ./target/${{ matrix.target }}/release/herdr-command-shelf${{ matrix.extension }} --version

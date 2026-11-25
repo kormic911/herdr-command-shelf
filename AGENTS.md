@@ -11,7 +11,7 @@ Command Shelf is a Rust terminal UI for Herdr. Each tab owns a saved command lis
 <!-- AGENTS-GENERATED:START commands -->
 - Build a linked checkout with `cargo build --release --locked`, then run `herdr plugin link .`.
 - Run `cargo fmt --check`, `cargo test --locked`, and `cargo clippy --locked --all-targets -- -D warnings`.
-- Exercise the release installer with `python3 tools/test_install_unix.py` on Unix or `.\tools\test_install.ps1` in Windows PowerShell.
+- Exercise the release installer with `python3 tools/test_install.py` on Unix or `.\tools\test_install.ps1` in Windows PowerShell.
 <!-- AGENTS-GENERATED:END commands -->
 
 ## Response Style
@@ -28,7 +28,7 @@ Lead with the result. Identify the host and distinguish native tests, emulated t
 
 - `src/herdr.rs` checks the bound terminal immediately before sending a saved command.
 - `src/state.rs` locks list mutations, compares the confirmed entry and replaces JSON files atomically. The tab migration test in `src/main.rs` covers existing data.
-- `tools/test_install_unix.py` and `tools/test_install.ps1` use fixture downloads to exercise the release installation path.
+- `tools/test_install.py` and `tools/test_install.ps1` use fixture downloads to exercise the release installation path.
 
 ## Heuristics (quick decisions)
 

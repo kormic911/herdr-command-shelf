@@ -105,7 +105,7 @@ cargo clippy --locked --all-targets -- -D warnings
 
 The linked checkout uses the binary in `target/release/`. To opt into building from source during plugin installation, set `HERDR_COMMAND_SHELF_BUILD_FROM_SOURCE=1` in the installer environment.
 
-Run `python3 tools/test_install_unix.py` on Unix and `.\tools\test_install.ps1` in Windows PowerShell to test installation with fixture downloads, including rejection of a corrupt asset. For an interactive check, open the shelf, bind another shell, save and run a command, then cancel and confirm a deletion. Close the target and verify that Run stays disabled until you bind again.
+Run `python3 tools/test_install.py` on Unix and `.\tools\test_install.ps1` in Windows PowerShell to test installation with fixture downloads, including rejection of a corrupt asset. For an interactive check, open the shelf, bind another shell, save and run a command, then cancel and confirm a deletion. Close the target and verify that Run stays disabled until you bind again.
 
 The workflow builds and smoke-tests all five release binaries on their native runners. Pull requests and pushes to main run checks. Manual runs upload build artifacts. To publish, align the versions in `Cargo.toml`, `Cargo.lock`, and `herdr-plugin.toml`, then push the corresponding version tag (for example, `v0.1.0`). The tag workflow publishes the binaries and their checksums. [Build and release workflow](.github/workflows/release.yml)
 
